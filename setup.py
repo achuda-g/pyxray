@@ -33,7 +33,7 @@ with open(os.path.join(BASEDIR, 'README.rst'), 'r') as fp:
 
 INSTALL_REQUIRES = ['tabulate']
 EXTRAS_REQUIRE = {'develop': ['requests', 'requests-cache', 'progressbar2',
-                              'nose', 'coverage']
+                              'nose', 'coverage', 'nose-timer', 'pypika']
                   }
 
 CMDCLASS = versioneer.get_cmdclass()
