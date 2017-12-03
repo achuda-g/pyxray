@@ -4,6 +4,7 @@
 import collections
 
 # Third party modules.
+import pypika
 
 # Local modules.
 from pyxray.base import NotFound
@@ -11,6 +12,14 @@ import pyxray.descriptor as descriptor
 from pyxray.sql.command import SelectBuilder
 
 # Globals and constants variables.
+
+class PlaceHolder:
+
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return ':{}'.format(self.name)
 
 class SelectMixin:
 
@@ -30,6 +39,32 @@ class SelectMixin:
 
         else:
             raise NotFound('Cannot parse element: {}'.format(element))
+
+    def _append_query_element(self, query, params, table, element, column='element_id'):
+        if hasattr(element, 'atomic_number'):
+            element = element.atomic_number
+
+        if isinstance(element, str):
+            element_name_table = pypika.Table('element_name')
+            query = query.join(element_name_table).on(getattr(table, column) == element_name_table.element_id)
+
+            element_symbol_table = pypika.Table('element_symbol')
+            query = query.join(element_symbol_table).on(getattr(table, column) == element_symbol_table.element_id)
+
+            query = query.where((element_name_table.name == PlaceHolder('element')) |
+                                (element_symbol_table.symbol == PlaceHolder('element')))
+            params['element'] = element
+
+        elif isinstance(element, int):
+            element_table = pypika.Table('element')
+            query = query.join(element_table).on(getattr(table, column) == element_table.id)
+            query = query.where(element_table.atomic_number == PlaceHolder('element'))
+            params['element'] = element
+
+        else:
+            raise NotFound('Cannot parse element: {}'.format(element))
+
+        return query, params
 
     def _append_select_atomic_shell(self, connection, builder, table, column, atomic_shell):
         if hasattr(atomic_shell, 'principal_quantum_number'):
@@ -178,6 +213,17 @@ class SelectMixin:
         builder.add_join('language', 'id', table, 'language_id')
         builder.add_where('language', 'code', '=', language)
 
+    def _append_query_language(self, query, params, table, language):
+        if isinstance(language, descriptor.Language):
+            language = language.code
+
+        language_table = pypika.Table('language')
+        query = query.join(language_table).on(table.language_id == language_table.id)
+        query = query.where(language_table.code == PlaceHolder('language'))
+        params['language'] = language
+
+        return query, params
+
     def _append_select_notation(self, connection, builder, table, notation):
         if isinstance(notation, descriptor.Notation):
             notation = notation.name
@@ -195,6 +241,21 @@ class SelectMixin:
 
         else:
             builder.add_orderby(table, 'reference_id')
+
+    def _append_query_reference(self, query, params, table, reference):
+        if isinstance(reference, descriptor.Reference):
+            reference = reference.bibtexkey
+
+        if reference:
+            ref_table = pypika.Table('ref')
+            query = query.join(ref_table).on(table.reference_id == ref_table.id)
+            query = query.where(ref_table.bibtexkey == PlaceHolder('reference'))
+            params['reference'] = reference
+
+        else:
+            query = query.orderby(table.reference_id)
+
+        return query, params
 
 class TableMixin:
 

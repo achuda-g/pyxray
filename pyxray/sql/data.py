@@ -5,6 +5,7 @@ Implementation of the database using a SQL database
 # Standard library modules.
 
 # Third party modules.
+import pypika
 
 # Local modules.
 from pyxray.base import _Database, NotFound
@@ -21,15 +22,14 @@ class SqlDatabase(SelectMixin, _Database):
         self.connection = connection
 
     def element(self, element):
-        table = 'element'
-        builder = SelectBuilder()
-        builder.add_select(table, 'atomic_number')
-        builder.add_from(table)
-        self._append_select_element(self.connection, builder, table, 'id', element)
-        sql, params = builder.build()
+        table = pypika.Table('element')
+        query = pypika.Query.from_(table).select(table.atomic_number)
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element, column='id')
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
         row = cur.fetchone()
         cur.close()
         if row is None:
@@ -39,15 +39,14 @@ class SqlDatabase(SelectMixin, _Database):
         return descriptor.Element(atomic_number)
 
     def element_atomic_number(self, element):
-        table = 'element'
-        builder = SelectBuilder()
-        builder.add_select(table, 'atomic_number')
-        builder.add_from(table)
-        self._append_select_element(self.connection, builder, table, 'id', element)
-        sql, params = builder.build()
+        table = pypika.Table('element')
+        query = pypika.Query.from_(table).select(table.atomic_number)
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element, column='id')
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
         row = cur.fetchone()
         cur.close()
         if row is None:
@@ -60,16 +59,15 @@ class SqlDatabase(SelectMixin, _Database):
         if not reference:
             reference = self.get_default_reference('element_symbol')
 
-        table = 'element_symbol'
-        builder = SelectBuilder()
-        builder.add_select(table, 'symbol')
-        builder.add_from(table)
-        self._append_select_element(self.connection, builder, table, 'element_id', element)
-        self._append_select_reference(self.connection, builder, table, reference)
-        sql, params = builder.build()
+        table = pypika.Table('element_symbol')
+        query = pypika.Query.from_(table).select(table.symbol)
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element)
+        query, params = self._append_query_reference(query, params, table, reference)
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
         row = cur.fetchone()
         cur.close()
         if row is None:
@@ -82,17 +80,16 @@ class SqlDatabase(SelectMixin, _Database):
         if not reference:
             reference = self.get_default_reference('element_name')
 
-        table = 'element_name'
-        builder = SelectBuilder()
-        builder.add_select(table, 'name')
-        builder.add_from(table)
-        self._append_select_element(self.connection, builder, table, 'element_id', element)
-        self._append_select_language(self.connection, builder, table, language)
-        self._append_select_reference(self.connection, builder, table, reference)
-        sql, params = builder.build()
+        table = pypika.Table('element_name')
+        query = pypika.Query.from_(table).select(table.name)
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element)
+        query, params = self._append_query_reference(query, params, table, reference)
+        query, params = self._append_query_language(query, params, table, language)
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
         row = cur.fetchone()
         cur.close()
         if row is None:
@@ -105,16 +102,15 @@ class SqlDatabase(SelectMixin, _Database):
         if not reference:
             reference = self.get_default_reference('element_atomic_weight')
 
-        table = 'element_atomic_weight'
-        builder = SelectBuilder()
-        builder.add_select(table, 'value')
-        builder.add_from(table)
-        self._append_select_element(self.connection, builder, table, 'element_id', element)
-        self._append_select_reference(self.connection, builder, table, reference)
-        sql, params = builder.build()
+        table = pypika.Table('element_atomic_weight')
+        query = pypika.Query.from_(table).select(table.value)
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element)
+        query, params = self._append_query_reference(query, params, table, reference)
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
         row = cur.fetchone()
         cur.close()
         if row is None:
@@ -127,16 +123,16 @@ class SqlDatabase(SelectMixin, _Database):
         if not reference:
             reference = self.get_default_reference('element_mass_density_kg_per_m3')
 
-        table = 'element_mass_density'
-        builder = SelectBuilder()
-        builder.add_select(table, 'value_kg_per_m3')
-        builder.add_from(table)
-        self._append_select_element(self.connection, builder, table, 'element_id', element)
-        self._append_select_reference(self.connection, builder, table, reference)
-        sql, params = builder.build()
+        table = pypika.Table('element_mass_density')
+        query = pypika.Query.from_(table).select(table.value_kg_per_m3)
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element)
+        query, params = self._append_query_reference(query, params, table, reference)
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
+
         row = cur.fetchone()
         cur.close()
         if row is None:
@@ -149,31 +145,64 @@ class SqlDatabase(SelectMixin, _Database):
         if not reference:
             reference = self.get_default_reference('xray_transition_probability')
 
-        table = 'xray_transition_probability'
-        builder = SelectBuilder()
-        builder.distinct = True
-        builder.add_select('srcshell', 'principal_quantum_number')
-        builder.add_select('srcsubshell', 'azimuthal_quantum_number')
-        builder.add_select('srcsubshell', 'total_angular_momentum_nominator')
-        builder.add_select('dstshell', 'principal_quantum_number')
-        builder.add_select('dstsubshell', 'azimuthal_quantum_number')
-        builder.add_select('dstsubshell', 'total_angular_momentum_nominator')
-        builder.add_from(table)
-        builder.add_join('xray_transition', 'id', table, 'xray_transition_id')
-        builder.add_join('xray_transitionset_association', 'xray_transition_id', table, 'xray_transition_id')
-        builder.add_join('atomic_subshell', 'id', 'xray_transition', 'source_subshell_id', 'srcsubshell')
-        builder.add_join('atomic_subshell', 'id', 'xray_transition', 'destination_subshell_id', 'dstsubshell')
-        builder.add_join('atomic_shell', 'id', 'srcsubshell', 'atomic_shell_id', 'srcshell')
-        builder.add_join('atomic_shell', 'id', 'dstsubshell', 'atomic_shell_id', 'dstshell')
-        self._append_select_element(self.connection, builder, table, 'element_id', element)
-        self._append_select_reference(self.connection, builder, table, reference)
-        if xraytransitionset is not None:
-            self._append_select_xray_transitionset(self.connection, builder, 'xray_transitionset_association', 'xray_transitionset_id', xraytransitionset)
-        builder.add_where(table, 'value', '>', 0.0)
-        sql, params = builder.build()
+        table = pypika.Table('xray_transition_probability')
+        srcshell_table = pypika.Table('atomic_shell', alias='srcshell')
+        dstshell_table = pypika.Table('atomic_shell', alias='dstshell')
+        srcsubshell_table = pypika.Table('atomic_subshell', alias='srcsubshell')
+        dstsubshell_table = pypika.Table('atomic_subshell', alias='dstsubshell')
+        xray_transition_table = pypika.Table('xray_transition')
+        xray_transitionset_association_table = pypika.Table('xray_transitionset_association')
+
+        query = pypika.Query.from_(table).join(xray_transition_table).on(
+            xray_transition_table.id == table.xray_transition_id
+        ).join(xray_transitionset_association_table).on(
+            xray_transitionset_association_table.xray_transition_id == table.xray_transition_id
+        ).join(srcsubshell_table).on(
+            srcsubshell_table.id == xray_transition_table.source_subshell_id
+        ).join(dstsubshell_table).on(
+            dstsubshell_table.id == xray_transition_table.destination_subshell_id
+        ).join(srcshell_table).on(
+            srcshell_table.id == srcsubshell_table.atomic_shell_id
+        ).join(dstshell_table).on(
+            dstshell_table.id == dstsubshell_table.atomic_shell_id
+        ).select(
+            srcshell_table.principal_quantum_number,
+            srcsubshell_table.azimuthal_quantum_number,
+            srcsubshell_table.total_angular_momentum_nominator,
+            dstshell_table.principal_quantum_number,
+            dstsubshell_table.azimuthal_quantum_number,
+            dstsubshell_table.total_angular_momentum_nominator
+        )
+        params = {}
+
+        query, params = self._append_query_element(query, params, table, element)
+        query, params = self._append_query_reference(query, params, table, reference)
+
+#        table = 'xray_transition_probability'
+#        builder = SelectBuilder()
+#        builder.distinct = True
+#        builder.add_select('srcshell', 'principal_quantum_number')
+#        builder.add_select('srcsubshell', 'azimuthal_quantum_number')
+#        builder.add_select('srcsubshell', 'total_angular_momentum_nominator')
+#        builder.add_select('dstshell', 'principal_quantum_number')
+#        builder.add_select('dstsubshell', 'azimuthal_quantum_number')
+#        builder.add_select('dstsubshell', 'total_angular_momentum_nominator')
+#        builder.add_from(table)
+#        builder.add_join('xray_transition', 'id', table, 'xray_transition_id')
+#        builder.add_join('xray_transitionset_association', 'xray_transition_id', table, 'xray_transition_id')
+#        builder.add_join('atomic_subshell', 'id', 'xray_transition', 'source_subshell_id', 'srcsubshell')
+#        builder.add_join('atomic_subshell', 'id', 'xray_transition', 'destination_subshell_id', 'dstsubshell')
+#        builder.add_join('atomic_shell', 'id', 'srcsubshell', 'atomic_shell_id', 'srcshell')
+#        builder.add_join('atomic_shell', 'id', 'dstsubshell', 'atomic_shell_id', 'dstshell')
+#        self._append_select_element(self.connection, builder, table, 'element_id', element)
+#        self._append_select_reference(self.connection, builder, table, reference)
+#        if xraytransitionset is not None:
+#            self._append_select_xray_transitionset(self.connection, builder, 'xray_transitionset_association', 'xray_transitionset_id', xraytransitionset)
+#        builder.add_where(table, 'value', '>', 0.0)
+#        sql, params = builder.build()
 
         cur = self.connection.cursor()
-        cur.execute(sql, params)
+        cur.execute(query.get_sql(), params)
         rows = cur.fetchall()
         cur.close()
         if not rows:
